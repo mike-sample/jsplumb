@@ -2334,7 +2334,13 @@
          * @returns {*}
          */
         this.drop = function(drag, event) {
-            return this.params.events["drop"]({ drag:drag, e:event, drop:this });
+            return this.params.events["drop"]({
+		drag:drag,
+		el: this.el,
+		finalPos: this.params.getPosition(this.el),
+		e:event,
+		drop:this
+	    });
         };
 
         this.destroy = function() {
@@ -4314,7 +4320,7 @@
 
     var jsPlumbInstance = root.jsPlumbInstance = function (_defaults) {
 
-        this.version = "2.12.0";
+        this.version = "2.11.2";
 
         this.Defaults = {
             Anchor: "Bottom",
@@ -6027,6 +6033,9 @@
                         var pp = eps.endpoints ? root.jsPlumb.extend(p, {
                             endpoint:elInfo.def.def.endpoint || eps.endpoints[1]
                         }) :p;
+			if (jpc.dropEvent) {
+			    pp.paintStyle = {fill: jpc.dropEvent.e.srcElement.attributes.fill.value};
+			}
                         if (eps.anchors) {
                             pp = root.jsPlumb.extend(pp, {
                                 anchor:elInfo.def.def.anchor || eps.anchors[1]
@@ -6050,10 +6059,11 @@
                     // if the anchor has a 'positionFinder' set, then delegate to that function to find
                     // out where to locate the anchor.
                     if (newEndpoint.anchor.positionFinder != null) {
-                        var dropPosition = _currentInstance.getUIPosition(arguments, _currentInstance.getZoom()),
+			var args = (!arguments[0].el && jpc.dropEvent) ? [jpc.dropEvent] : arguments;
+                        var dropPosition = _currentInstance.getUIPosition(args, _currentInstance.getZoom()),
                             elPosition = _currentInstance.getOffset(elInfo.el),
                             elSize = _currentInstance.getSize(elInfo.el),
-                            ap = dropPosition == null ? [0,0] : newEndpoint.anchor.positionFinder(dropPosition, elPosition, elSize, newEndpoint.anchor.constructorParams);
+                            ap = dropPosition == null ? [0,0] : newEndpoint.anchor.positionFinder(dropPosition, elPosition, elSize, newEndpoint.anchor.constructorParams, args[0].e.x);
 
                         newEndpoint.anchor.x = ap[0];
                         newEndpoint.anchor.y = ap[1];
@@ -6071,7 +6081,7 @@
                         _currentInstance.deleteObject({endpoint: ep});
                     }
                     else {
-                        delete ep._mtNew;
+                      delete ep._mtNew;
                     }
                 }
             });
@@ -7280,21 +7290,6 @@
         },
         addOverlay: function (overlay, doNotRepaint) {
             var o = _processOverlay(this, overlay);
-
-            if (this.getData && o.type === "Label" && _ju.isArray(overlay)) {
-                //
-                // component data might contain label location - look for it here.
-                var d = this.getData(), p = overlay[1];
-                if (d) {
-                    var locationAttribute = p.labelLocationAttribute || "labelLocation";
-                    var loc = d ? d[locationAttribute] : null;
-
-                    if (loc) {
-                        o.loc = loc;
-                    }
-                }
-            }
-
             if (!doNotRepaint) {
                 this.repaint();
             }
@@ -8536,6 +8531,8 @@
             // get the drop endpoint. for a normal connection this is just the one that would replace the currently
             // floating endpoint. for a makeTarget this is a new endpoint that is created on drop. But we leave that to
             // the handler to figure out.
+
+	    jpc.dropEvent = e;
             var _ep = dhParams.getEndpoint(jpc);
 
             // If we're not given an endpoint to use, bail.
@@ -8545,14 +8542,14 @@
 
             // if this is a drop back where the connection came from, mark it force reattach and
             // return; the stop handler will reattach. without firing an event.
-            if (dhParams.isRedrop(jpc, dhParams)) {
-                jpc._forceReattach = true;
-                jpc.setHover(false);
-                if (dhParams.maybeCleanup) {
-                    dhParams.maybeCleanup(_ep);
-                }
-                return;
-            }
+            //if (dhParams.isRedrop(jpc, dhParams)) {
+            //    jpc._forceReattach = true;
+            //    jpc.setHover(false);
+            //    if (dhParams.maybeCleanup) {
+            //        dhParams.maybeCleanup(_ep);
+            //    }
+            //    return;
+            //}
 
             // ensure we dont bother trying to drop sources on non-source eps, and same for target.
             var idx = _jsPlumb.getFloatingAnchorIndex(jpc);
